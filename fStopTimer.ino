@@ -1,4 +1,4 @@
-a#include <ClickEncoder.h>
+#include <ClickEncoder.h>
 #include <TimerOne.h>
 #include <SSD1306AsciiAvrI2c.h>
 #include <EasyButton.h>
@@ -34,10 +34,10 @@ a#include <ClickEncoder.h>
 #define SCR_MAIN                 0
 #define SCR_FSTOP                1
 #define SCR_TIME                 2
-#define SCR_STRIPE               3
-#define SCR_SETUP                4
-#define SCR_DEV_TIMER            5
-const int8_t CNT_MAIN[]      = { 1, 5 };
+#define SCR_SETUP                3
+#define SCR_STRIPE               4
+//#define SCR_DEV_TIMER            5
+const int8_t CNT_MAIN[]      = { 1, 4 };
 
 #define SCR_DODGE                10
 #define SCR_BURN                 11
@@ -62,23 +62,23 @@ const int8_t CNT_SETUP[]     = { 40, 42 };
 #define OPT_DT_WASH              53
 const int8_t CNT_DT_TIMES[]  = { 50, 53 };
 
-#define M_MAIN                   "Main"
+const char M_MAIN[]       = "Main";
 const char M_FSTOP[]      = "fStop";
 const char M_DODGE[]      = "Dodge";
 const char M_BURN[]       = "Burn";
 const char M_TIME[]       = "Time";
 const char M_STRIPE[]     = "Stripe";
 const char M_SETUP[]      = "Setup";
-const char M_DEV_TIMER[]  = "Dev Timer";
+//const char M_DEV_TIMER[]  = "Dev Timer";
 
 const char S_LIGHT_ON[]   = "LIGHT ON";
 const char S_CLEAR[]      = "        ";
-const char S_SD_ERR[]     = "NO SD";
+const char S_SD_ERR[]     = "SD err";
 const char S_PAUSE[]      = " -PAUSE- ";
 const char S_READY[]      = ".o.";
 const char S_SEP          = ';';
 
-#define F_D                 "%d"
+const char F_D[]          = "%d";
 const char F_FS[]         = "f/%s";
 const char F_DFS[]        = "df=%s";
 const char F_TS[]         = "t=%s";
@@ -90,11 +90,12 @@ const char F_DODGED[]     = "Dodge=%d";
 const char F_BURND[]      = "Burn=%d";
 const char F_DODGES[]     = "Dodge=%s";
 const char F_BURNS[]      = "Burn=%s";
+/*
 const char F_DT_DEV[]     = "Dev=%d";
 const char F_DT_STOP[]    = "Stop=%d";
 const char F_DT_FIX[]     = "Fix=%d";
 const char F_DT_WASH[]    = "Wash=%d";
-
+*/
 SSD1306AsciiAvrI2c oled;
 ClickEncoder *encoder;
 
@@ -136,6 +137,9 @@ float cf;                        // counter f
 float lt;                        // time left
 float lf;                        // f left
 
+float cft;
+bool pp = true;
+
 uint8_t sn = 5;                  // number of stripes
 uint8_t csn;                     // counter nuber of stripes
 
@@ -150,8 +154,9 @@ bool breakCounter = false;
 bool wait4Click = false;
 
 char buf[20];
-
+/*
 uint16_t devTimer[4];
+*/
 
 void setup() {
   //Serial.begin(9600);
@@ -306,7 +311,7 @@ void sHead(const char * s) {
   //prnItem(false, false, I_LEFT,  1, lts(F_D, screen));
   //prnItem(false, false, I_RIGHT, 1, lts(F_D, menuPosition));
   if (!isSD) {
-    prnItem(false, false, I_CENTER, 0, S_SD_ERR);
+    prnItem(false, false, I_LEFT, 1, S_SD_ERR);
   }
 }
 
@@ -361,7 +366,7 @@ void saveLog() {
   } 
 }
 
-void xyz() {
+void calcDodges() {
   int i;
   bool flip;
   do {
@@ -402,7 +407,7 @@ void lClick() {
     return;
   }
   if (screen >= 100 && screen <= 102) {
-    xyz();
+    calcDodges();
     swtScr(SCR_DODGE, screen, false);
     return;
   }
@@ -434,7 +439,7 @@ void rClick() {
     // on Setup
     swtScrIf(SCR_SETUP, OPT_SETUP_CONTRAST, true);
     // on Dev timer
-    swtScrIf(SCR_DEV_TIMER, OPT_DT_DEV, true);
+    //swtScrIf(SCR_DEV_TIMER, OPT_DT_DEV, true);
     return;
   }
   // Click in fStop screen
@@ -500,9 +505,9 @@ void rClick() {
     swtScrIf(OPT_SETUP_SOUND, 0, false);
     return;
   }
-  // Click in Setup screen on set Contrast
-  if (screen == OPT_SETUP_CONTRAST) {
-    swtScr(SCR_SETUP, OPT_SETUP_CONTRAST, false);
+  // Click in Setup screen on set Contrast or Sount
+  if (screen == OPT_SETUP_CONTRAST || screen == OPT_SETUP_SOUND) {
+    swtScr(SCR_SETUP, screen, false);
     return;
   }        
   // Click in Setup screen on set Trigger
@@ -511,12 +516,26 @@ void rClick() {
     rBtn.onPressedFor(trg, rBtnPressLng);
     swtScr(SCR_SETUP, OPT_SETUP_TRIGGER, false);
     return;
-  }        
-  // Click in Setup screen on set Contrast
-  if (screen == OPT_SETUP_SOUND) {
-    swtScr(SCR_SETUP, OPT_SETUP_SOUND, false);
+  }      
+/*    
+  // Click in Setup screen
+  if (screen == SCR_DEV_TIMER) {
+    // on edit Dev setting
+    swtScrIf(OPT_DT_DEV, 0, false);
+    // on edit Dev setting
+    swtScrIf(OPT_DT_STOP, 0, false);
+    // on edit Dev setting
+    swtScrIf(OPT_DT_FIX, 0, false);
+    // on edit Dev setting
+    swtScrIf(OPT_DT_WASH, 0, false);
+    return;
+  }
+  // Click in DevTimer on set times
+  if (screen == OPT_DT_DEV || screen == OPT_DT_STOP || screen == OPT_DT_FIX || screen == OPT_DT_WASH) {
+    swtScr(SCR_DEV_TIMER, screen, false);
     return;
   }  
+*/  
 } 
 
 float rollFloatVar(float varF, float step, float minF, float maxF) {
@@ -555,9 +574,9 @@ void encoderTurn() {
       sHead(M_MAIN);
       menuItem(SCR_FSTOP,     true,  I_CENTER_LEFT,  4, M_FSTOP);
       menuItem(SCR_TIME,      true,  I_CENTER_RIGHT, 4, M_TIME);
-      menuItem(SCR_STRIPE,    false, I_CENTER_LEFT,  7, M_STRIPE);
-      menuItem(SCR_SETUP,     false, I_CENTER_RIGHT, 7, M_SETUP);
-      menuItem(SCR_DEV_TIMER, false, I_CENTER,       2, M_DEV_TIMER);
+      menuItem(SCR_STRIPE,    false, I_CENTER,       2, M_STRIPE);
+      menuItem(SCR_SETUP,     false, I_CENTER,       7, M_SETUP);
+      //menuItem(SCR_DEV_TIMER, false, I_CENTER,       2, M_DEV_TIMER);
     }
     // fStop screen
     if (screen == SCR_FSTOP) {
@@ -572,7 +591,8 @@ void encoderTurn() {
     if (screen == OPT_FSTOP_F) {
       fToT();
       sHead(M_FSTOP);
-      xyz();
+      calcDodges
+();
       prnItem(false, true,  I_CENTER, 4, fts(F_FS, 2, 1, f));
       prnItem(false, false, I_CENTER_LEFT,  7, fts(F_DFS, 3, 2, df));
       prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_TS,  3, 1, t));
@@ -667,6 +687,8 @@ void encoderTurn() {
       snd = rollIntVar(snd, 1, 0, 4);
       prnItem(false, false, I_LEFT, 7, lts(F_D, snd));
     }
+/*    
+    // Development timer screen
     if (screen == SCR_DEV_TIMER) {
       mpRoll(CNT_DT_TIMES);
       sHead(M_DEV_TIMER);
@@ -675,6 +697,24 @@ void encoderTurn() {
       menuItem(OPT_DT_FIX,  false, I_CENTER_LEFT,  7, lts(F_DT_FIX,  devTimer[2]));
       menuItem(OPT_DT_WASH, false, I_CENTER_RIGHT, 7, lts(F_DT_WASH, devTimer[3]));
     }
+    // Click in Dev time
+    if (screen == OPT_DT_DEV) {
+      devTimer[0] = rollIntVar(devTimer[0], 10, 1, 999);
+      prnItem(false,  false, I_CENTER_LEFT,  2, lts(F_DT_DEV,  devTimer[0]));
+    }
+    if (screen == OPT_DT_STOP) {
+      devTimer[1] = rollIntVar(devTimer[1], 10, 1, 999);
+      prnItem(false,  false, I_CENTER_RIGHT, 2, lts(F_DT_STOP, devTimer[1]));
+    }
+    if (screen == OPT_DT_FIX) {
+      devTimer[2] = rollIntVar(devTimer[2], 10, 1, 999);
+      prnItem(false,  false, I_CENTER_LEFT,  7, lts(F_DT_FIX,  devTimer[2]));
+    }
+    if (screen == OPT_DT_WASH) {
+      devTimer[3] = rollIntVar(devTimer[3], 10, 1, 999);
+      prnItem(false,  false, I_CENTER_RIGHT, 7, lts(F_DT_WASH, devTimer[3]));
+    }
+*/
   }
 }
 
@@ -738,8 +778,6 @@ void rBtnPressShr() {
   }
 }
 
-float cft;
-
 void chgMode(uint8_t m, float pt, float pf) {
   prnItem(false, false, I_CENTER, 0, S_READY);
   delay(1000);
@@ -780,8 +818,6 @@ void rBtnPressLng() {
     return;
   } 
 }
-
-bool pp = true;
 
 void timerCounter() {
   uint32_t dts = millis() - timeStamp; // delta timestamp
