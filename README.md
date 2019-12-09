@@ -49,11 +49,10 @@ Foot switch
 100W 12V DC power source
 ![](img/dc.png)
 
-Wires
-Enclosure
-
 ![](img/dev.png)
+
 ![](img/dev.jpg)
 
 Darkroom safe light (12V LED modification)
+
 Enlarger (75-100W halogen or 10-15W LED light source)
