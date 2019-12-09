@@ -46,7 +46,7 @@ On/Off switch
 Foot switch
 ![](img/foot.png)
 
-100W 12V DC power source
+120W 12V DC power source
 ![](img/dc.png)
 
 ![](img/dev.png)
