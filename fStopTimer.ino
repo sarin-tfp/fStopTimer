@@ -56,11 +56,13 @@ const int8_t CNT_STRIPE[]    = { 30, 31 };
 #define OPT_SETUP_SOUND          42
 const int8_t CNT_SETUP[]     = { 40, 42 };
 
+/*
 #define OPT_DT_DEV               50
 #define OPT_DT_STOP              51
 #define OPT_DT_FIX               52
 #define OPT_DT_WASH              53
 const int8_t CNT_DT_TIMES[]  = { 50, 53 };
+*/
 
 const char M_MAIN[]       = "Main";
 const char M_FSTOP[]      = "fStop";
@@ -138,7 +140,6 @@ float lt;                        // time left
 float lf;                        // f left
 
 float cft;
-bool pp = true;
 
 uint8_t sn = 5;                  // number of stripes
 uint8_t csn;                     // counter nuber of stripes
@@ -175,7 +176,11 @@ void setup() {
     }
   }
 
-  oled.begin(&Adafruit128x64, I2C_ADDRESS);
+  //for 0.96" oled
+  //oled.begin(&Adafruit128x64, I2C_ADDRESS);
+  
+  //for 1.3" oled
+  oled.begin(&SH1106_128x64, I2C_ADDRESS);
   oled.setFont(System5x7);
   oled.setContrast(cont);
 
@@ -591,8 +596,7 @@ void encoderTurn() {
     if (screen == OPT_FSTOP_F) {
       fToT();
       sHead(M_FSTOP);
-      calcDodges
-();
+      calcDodges();
       prnItem(false, true,  I_CENTER, 4, fts(F_FS, 2, 1, f));
       prnItem(false, false, I_CENTER_LEFT,  7, fts(F_DFS, 3, 2, df));
       prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_TS,  3, 1, t));
@@ -831,14 +835,16 @@ void timerCounter() {
   }
 
   if (lt > 0) {
-    if (snd >= 4 && (long)(lt * 10) % 10 == 0) {
+    if (snd >= 4 && dodge[0].f == 0 && (long)(lt * 10) % 10 == 0) {
       tone(PIN_TONE, 2000, 100);
     }
-    if (pp && screen == OPT_FSTOP_F && lf >= dodge[u].tf && dodge[u].f > 0) {
+    if (screen == OPT_FSTOP_F && lf >= dodge[u].tf && dodge[u].f > 0) {
       u++;
-      tone(PIN_TONE, 2000, 100);
+      tone(PIN_TONE, 2000, 200);
     }    
-    prnItem(false, false, I_CENTER_LEFT,  2, lts(F_DODGED, u));
+    if (activeMode == MOD_FSTOP) {
+      prnItem(false, false, I_CENTER_LEFT,  2, lts(F_DODGED, u));
+    }
     if (activeMode == MOD_STRIPES && lf >= f + ( df * csn )) {
       ct = lt;
       csn++;
@@ -873,9 +879,8 @@ void loop() {
   if (activeMode == MOD_MENUS) {
     encoderTurn();
     encoderClick();
-  } 
-
-  if (activeMode == MOD_FSTOP || activeMode == MOD_TIME || activeMode == MOD_STRIPES) {
+  } else {
+    // if (activeMode == MOD_FSTOP || activeMode == MOD_TIME || activeMode == MOD_STRIPES) {
     timerCounter();
   }
 
