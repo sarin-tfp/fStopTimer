@@ -75,7 +75,7 @@ const char M_SETUP[]      = "Setup";
 
 const char S_LIGHT_ON[]   = "LIGHT ON";
 const char S_CLEAR[]      = "        ";
-const char S_SD_ERR[]     = "SD err";
+const char S_SD_ERR[]     = "SDerr";
 const char S_PAUSE[]      = " -PAUSE- ";
 const char S_READY[]      = ".o.";
 const char S_SEP          = ';';
@@ -116,7 +116,8 @@ fStop dodge[4];
 fStop burn[4];
 int8_t dodges = 0;
 int8_t burns  = 0;
-int8_t u = 0;
+int8_t nDodge = 0;
+int8_t nBurn = 0;
 
 int8_t activeMode = MOD_MENUS;
 int8_t lastMode;
@@ -371,35 +372,44 @@ void saveLog() {
   } 
 }
 
-void calcDodges() {
+int sort(fStop a[]) {
   int i;
   bool flip;
+  int ret;
   do {
     flip = false;
-    dodges = 0;
+    ret = 0;
     for (i = 0; i <= 2; i++) {
-      if (dodge[i].f < dodge[i + 1].f) {
-        float mf = dodge[i].f;
-        dodge[i].f = dodge[i + 1].f;
-        dodge[i + 1].f = mf;
+      if (a[i].f < a[i + 1].f) {
+        float mf = a[i].f;
+        a[i].f = a[i + 1].f;
+        a[i + 1].f = mf;
         flip = true;
       }
-      if (dodge[i].f > 0) {
-        dodges++;
+      if (a[i].f > 0) {
+        ret++;
       }
     }
   } while (flip);
+  return ret;
+}
+
+void calcDodges() {
+  dodges = sort(dodge);
   fStop fs;
   dodge[3].tf = f;
-  for (i = 2; i >= 0; i--) {
+  for (int i = 2; i >= 0; i--) {
     dodge[i].tf = dodge[i + 1].tf - dodge[i].f;
   }
   if (dodge[0].tf < -3.0) {
     prnItem(false, false, I_CENTER, 1, "too short");
   } else {
     prnItem(false, false, I_CENTER, 1, "         ");
-
   }
+}
+
+void calcBurns() {
+  burns = sort(burn);
 }
 
 void lClick() {
@@ -417,6 +427,7 @@ void lClick() {
     return;
   }
   if (screen >= 110 && screen <= 112) {
+    calcBurns();
     swtScr(SCR_BURN, screen, false);
     return;
   }
@@ -424,6 +435,18 @@ void lClick() {
     swtScr(SCR_STRIPE, screen, false);
     return;
   }
+  // Click in Setup screen on set Contrast or Sount
+  if (screen == OPT_SETUP_CONTRAST || screen == OPT_SETUP_SOUND) {
+    swtScr(SCR_SETUP, screen, false);
+    return;
+  }        
+  // Click in Setup screen on set Trigger
+  if (screen == OPT_SETUP_TRIGGER) {
+    lBtn.onPressedFor(trg, lBtnPressLng);
+    rBtn.onPressedFor(trg, rBtnPressLng);
+    swtScr(SCR_SETUP, OPT_SETUP_TRIGGER, false);
+    return;
+  }      
   if (screen >= CNT_MAIN[0] && screen <= CNT_MAIN[1]) {
     if (screen == SCR_SETUP) {
       saveCfg();
@@ -510,18 +533,6 @@ void rClick() {
     swtScrIf(OPT_SETUP_SOUND, 0, false);
     return;
   }
-  // Click in Setup screen on set Contrast or Sount
-  if (screen == OPT_SETUP_CONTRAST || screen == OPT_SETUP_SOUND) {
-    swtScr(SCR_SETUP, screen, false);
-    return;
-  }        
-  // Click in Setup screen on set Trigger
-  if (screen == OPT_SETUP_TRIGGER) {
-    lBtn.onPressedFor(trg, lBtnPressLng);
-    rBtn.onPressedFor(trg, rBtnPressLng);
-    swtScr(SCR_SETUP, OPT_SETUP_TRIGGER, false);
-    return;
-  }      
 /*    
   // Click in Setup screen
   if (screen == SCR_DEV_TIMER) {
@@ -597,6 +608,7 @@ void encoderTurn() {
       fToT();
       sHead(M_FSTOP);
       calcDodges();
+      calcBurns();
       prnItem(false, true,  I_CENTER, 4, fts(F_FS, 2, 1, f));
       prnItem(false, false, I_CENTER_LEFT,  7, fts(F_DFS, 3, 2, df));
       prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_TS,  3, 1, t));
@@ -725,19 +737,19 @@ void encoderTurn() {
 void encoderClick() {
   ClickEncoder::Button b = encoder->getButton();
   if (b != ClickEncoder::Open) {
-    beep(500);
     switch (b) {
       case ClickEncoder::Pressed:
         break;
       case ClickEncoder::Held:
         break;
       case ClickEncoder::Released:
+        rBtnPressLng();
         break;
       case ClickEncoder::Clicked:
-        rClick();
+        lBtnPressShr();
         break;
       case ClickEncoder::DoubleClicked:
-        lClick();
+        rBtnPressShr();
         break;
     }
   }
@@ -797,7 +809,8 @@ void rBtnPressLng() {
   beep(500);
   if (!isLightOn && activeMode == MOD_MENUS) {  
     if (screen == OPT_FSTOP_F) {
-      u = 0;
+      nDodge = 0;
+      nBurn = 0;
       chgMode(MOD_FSTOP, t, f);
     }
     if (screen == SCR_TIME) {
@@ -817,7 +830,7 @@ void rBtnPressLng() {
     printCount++;
     return;
   }
-  if (activeMode == MOD_STRIPES) {
+  if (activeMode == MOD_STRIPES || activeMode == MOD_FSTOP) {
     wait4Click = false;
     return;
   } 
@@ -838,12 +851,13 @@ void timerCounter() {
     if (snd >= 4 && dodge[0].f == 0 && (long)(lt * 10) % 10 == 0) {
       tone(PIN_TONE, 2000, 100);
     }
-    if (screen == OPT_FSTOP_F && lf >= dodge[u].tf && dodge[u].f > 0) {
-      u++;
+    if (screen == OPT_FSTOP_F && lf >= dodge[nDodge].tf && dodge[nDodge].f > 0) {
+      nDodge++;
       tone(PIN_TONE, 2000, 200);
     }    
     if (activeMode == MOD_FSTOP) {
-      prnItem(false, false, I_CENTER_LEFT,  2, lts(F_DODGED, u));
+      prnItem(false, false, I_CENTER_LEFT,  2, lts(F_DODGED, nDodge));
+      prnItem(false, false, I_CENTER_RIGHT, 2, lts(F_BURND, nBurn));
     }
     if (activeMode == MOD_STRIPES && lf >= f + ( df * csn )) {
       ct = lt;
@@ -862,26 +876,40 @@ void timerCounter() {
     }
   } else {
     turnLight(false);
-    beepAcl();
-    saveLog();
-    delay(3000);
-    activeMode = MOD_MENUS;
-    lastPosition = LP_UNDF;
-    printCount++;
+    if (screen == OPT_FSTOP_F && burn[nBurn].f > 0) {
+      beepProg();
+      cft = pow(2, f + burn[nBurn].f);
+      ct = cft - pow(2, f);
+      nBurn++;
+      prnItem(false, false, I_CENTER_RIGHT, 2, lts(F_BURND, nBurn));
+      wait4Click = true;
+      do {
+        rBtn.read();
+      } while (wait4Click);
+      wait4Click = false;
+      turnLight(true);
+      timeStamp = millis();
+    } else {
+      beepAcl();
+      saveLog();
+      delay(3000);
+      activeMode = MOD_MENUS;
+      lastPosition = LP_UNDF;
+      printCount++;
+    }
   }
 }
 
 void loop() {
-
   lBtn.read();
   rBtn.read();
 
   if (activeMode == MOD_MENUS) {
     encoderTurn();
     encoderClick();
-  } else {
-    // if (activeMode == MOD_FSTOP || activeMode == MOD_TIME || activeMode == MOD_STRIPES) {
+  }
+  
+  if (activeMode == MOD_FSTOP || activeMode == MOD_TIME || activeMode == MOD_STRIPES) {
     timerCounter();
   }
-
 }
