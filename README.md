@@ -32,7 +32,7 @@ TZT 5v 1 channel relay
 ![](img/relay.png)
 
 TZT Micro SD Storage Expansion Board
-![](img/dc.png)
+![](img/sd.png)
 
 Buzzer
 ![](img/buzzer.png)
