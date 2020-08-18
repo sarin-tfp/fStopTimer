@@ -15,6 +15,11 @@ fStop timer features:
 ![](img/ready1.jpg)
 ![](img/ready2.jpg)
 
+![](img/v2_1.jpg)
+![](img/v2_2.jpg)
+![](img/v2_3.jpg)
+![](img/v2_4.jpg)
+
 Parts list:
 TZT Arduino Nano 3.0 clone
 ![](img/nano.png)

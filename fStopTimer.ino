@@ -28,6 +28,7 @@
 #define I_CENTER                 64
 #define I_CENTER_RIGHT           96
 #define I_RIGHT                  127
+#define I_DOT                    -127
 
 #define LP_UNDF                 -123
 
@@ -36,7 +37,6 @@
 #define SCR_TIME                 2
 #define SCR_SETUP                3
 #define SCR_STRIPE               4
-//#define SCR_DEV_TIMER            5
 const int8_t CNT_MAIN[]      = { 1, 4 };
 
 #define SCR_DODGE                10
@@ -71,9 +71,9 @@ const char M_BURN[]       = "Burn";
 const char M_TIME[]       = "Time";
 const char M_STRIPE[]     = "Stripe";
 const char M_SETUP[]      = "Setup";
-//const char M_DEV_TIMER[]  = "Dev Timer";
 
-const char S_LIGHT_ON[]   = "LIGHT ON";
+const char S_LIGHT_ON[]   = " PRINT ";
+const char S_FOCUS[]      = " FOCUS ";
 const char S_CLEAR[]      = "        ";
 const char S_SD_ERR[]     = "SDerr";
 const char S_PAUSE[]      = " -PAUSE- ";
@@ -82,22 +82,17 @@ const char S_SEP          = ';';
 
 const char F_D[]          = "%d";
 const char F_FS[]         = "f/%s";
-const char F_DFS[]        = "df=%s";
+const char F_DFS[]        = "df=1/%d";
 const char F_TS[]         = "t=%s";
 const char F_DTS[]        = "dt=%s";
-const char F_SS[]         = "%ss";
+const char F_SS[]         = " %ss ";
 const char F_ND[]         = "n=%d";
 const char F_DMS[]        = "%dms";
 const char F_DODGED[]     = "Dodge=%d";
 const char F_BURND[]      = "Burn=%d";
 const char F_DODGES[]     = "Dodge=%s";
 const char F_BURNS[]      = "Burn=%s";
-/*
-const char F_DT_DEV[]     = "Dev=%d";
-const char F_DT_STOP[]    = "Stop=%d";
-const char F_DT_FIX[]     = "Fix=%d";
-const char F_DT_WASH[]    = "Wash=%d";
-*/
+
 SSD1306AsciiAvrI2c oled;
 ClickEncoder *encoder;
 
@@ -134,7 +129,7 @@ uint32_t timeStamp;
 float t  = 4;                    // time [s]
 float dt = 1;                    // encoder delta t
 float f  = 2.0;                  // fstop number
-float df = 0.5;                  // encoder delta fstop
+int8_t df = 2;                   // encoder delta fstop 1/df
 float ct;                        // counter t
 float cf;                        // counter f
 float lt;                        // time left
@@ -156,9 +151,8 @@ bool breakCounter = false;
 bool wait4Click = false;
 
 char buf[20];
-/*
-uint16_t devTimer[4];
-*/
+
+void turnLight(bool _on, const char * s = S_LIGHT_ON);
 
 void setup() {
   //Serial.begin(9600);
@@ -253,6 +247,9 @@ void prnItem(bool i, bool d, int8_t x, int8_t y, const char * s) {
     case I_RIGHT:
       cx = x - l * sc;
       break;  
+    case I_DOT:
+      cx = 106 - l * sc;
+      break;
     default:
       cx = x - l * (sc / 2);
   }
@@ -277,7 +274,7 @@ void menuItem2(int8_t pos, bool d, int8_t x, int8_t y) {
 }
 
 char * fts(const char * fmt, uint8_t w, uint8_t p, float f){
-  char bfr[5];
+  char bfr[8];
   dtostrf(f, w, p, bfr);
   sprintf(buf, fmt, bfr);
   return buf;
@@ -316,16 +313,17 @@ void sHead(const char * s) {
   prnItem(false, false, I_RIGHT, 0, lts(F_D, printCount));
   //prnItem(false, false, I_LEFT,  1, lts(F_D, screen));
   //prnItem(false, false, I_RIGHT, 1, lts(F_D, menuPosition));
+  //prnItem(false, false, I_CENTER, 1, lts(F_D, encoderValue));
   if (!isSD) {
     prnItem(false, false, I_LEFT, 1, S_SD_ERR);
   }
 }
 
-void turnLight(bool _on) {
+void turnLight(bool _on, const char * s) {
   isLightOn = _on;
   if (_on) {
     digitalWrite(PIN_ENLA_RELAY, LOW);
-    prnItem(true, false, I_CENTER, 0, S_LIGHT_ON);
+    prnItem(true, false, I_CENTER, 0, s);
   } else {
     digitalWrite(PIN_ENLA_RELAY, HIGH);
     prnItem(false, false, I_CENTER, 0, S_CLEAR);
@@ -404,7 +402,7 @@ void calcDodges() {
   if (dodge[0].tf < -3.0) {
     prnItem(false, false, I_CENTER, 1, "too short");
   } else {
-    prnItem(false, false, I_CENTER, 1, "         ");
+    prnItem(false, false, I_CENTER, 1, S_CLEAR);
   }
 }
 
@@ -466,8 +464,6 @@ void rClick() {
     swtScrIf(SCR_STRIPE, OPT_STRIPE_F, true);
     // on Setup
     swtScrIf(SCR_SETUP, OPT_SETUP_CONTRAST, true);
-    // on Dev timer
-    //swtScrIf(SCR_DEV_TIMER, OPT_DT_DEV, true);
     return;
   }
   // Click in fStop screen
@@ -485,8 +481,8 @@ void rClick() {
     swtScrIf(100, 0, false);
     swtScrIf(101, 0, false);
     swtScrIf(102, 0, false);
-    swtScrIf(103, 0, false);
-    swtScrIf(104, 0, false);
+    //swtScrIf(103, 0, false);
+    //swtScrIf(104, 0, false);
     return;
   }
   // Click in Burn screen
@@ -494,11 +490,11 @@ void rClick() {
     swtScrIf(110, 0, false);
     swtScrIf(111, 0, false);
     swtScrIf(112, 0, false);
-    swtScrIf(113, 0, false);
-    swtScrIf(114, 0, false);
+    //swtScrIf(113, 0, false);
+    //swtScrIf(114, 0, false);
     return;
   }
-  // Click in Time screen
+  // Click in Time screen xxxxx
   if (screen == SCR_TIME) {
     dt = dt == 0.1 ? 1.0 : dt == 1.0 ? 10.0 : dt == 10.0 ? 0.1 : 1.0; 
     lastPosition = LP_UNDF;
@@ -514,7 +510,7 @@ void rClick() {
   }
   // Click in F stop screem Stripe screen, dodges and burns on set f
   if (screen == OPT_STRIPE_F || screen == OPT_FSTOP_F || (screen >= 100 && screen <= 112)) {
-    df = df == 0.1 ? 0.3 : df == 0.3 ? 0.5 : df == 0.5 ? 1.0 : df == 1.0 ? 0.1 : 0.3; 
+    df = df == 6 ? 3 : df == 3 ? 2 : df == 2 ? 1 : df == 1 ? 6 : 3; 
     lastPosition = LP_UNDF;
     return;
   }        
@@ -533,49 +529,43 @@ void rClick() {
     swtScrIf(OPT_SETUP_SOUND, 0, false);
     return;
   }
-/*    
-  // Click in Setup screen
-  if (screen == SCR_DEV_TIMER) {
-    // on edit Dev setting
-    swtScrIf(OPT_DT_DEV, 0, false);
-    // on edit Dev setting
-    swtScrIf(OPT_DT_STOP, 0, false);
-    // on edit Dev setting
-    swtScrIf(OPT_DT_FIX, 0, false);
-    // on edit Dev setting
-    swtScrIf(OPT_DT_WASH, 0, false);
+  // Click in Setup screen on set Contrast or Sound
+  if (screen == OPT_SETUP_CONTRAST || screen == OPT_SETUP_SOUND) {
+    swtScr(SCR_SETUP, screen, false);
     return;
-  }
-  // Click in DevTimer on set times
-  if (screen == OPT_DT_DEV || screen == OPT_DT_STOP || screen == OPT_DT_FIX || screen == OPT_DT_WASH) {
-    swtScr(SCR_DEV_TIMER, screen, false);
+  }        
+  // Click in Setup screen on set Trigger
+  if (screen == OPT_SETUP_TRIGGER) {
+    lBtn.onPressedFor(trg, lBtnPressLng);
+    rBtn.onPressedFor(trg, rBtnPressLng);
+    swtScr(SCR_SETUP, OPT_SETUP_TRIGGER, false);
     return;
-  }  
-*/  
+  }      
 } 
 
 float rollFloatVar(float varF, float step, float minF, float maxF) {
   lastPosition = menuPosition;
-  float deltaF = (float) encoderValue * step;
-  if (varF + deltaF >= minF - 1 && varF + deltaF <= maxF) {
+  float deltaF = 1.0 * encoderValue * step;
+  //if (varF + deltaF >= minF - 1 && varF + deltaF <= maxF + 1) {
     varF += deltaF;        
-  }
-  return varF < minF ? minF : varF;
+  //}
+  return varF < minF ? minF : varF > maxF ? maxF : varF;
 }
 
-float rollIntVar(int16_t varI, uint8_t step, int16_t minI, int16_t maxI) {
+int16_t rollIntVar(int16_t varI, uint8_t step, int16_t minI, int16_t maxI) {
   lastPosition = menuPosition;
   int16_t deltaI = encoderValue * step;
-  if (varI + deltaI >= minI && varI + deltaI <= maxI) {
+  //if (varI + deltaI >= minI && varI + deltaI <= maxI) {
     varI += deltaI;        
-  }
-  return varI;
+  //}
+  return varI < minI ? minI : varI > maxI ? maxI : varI;
+  //return varI;
 }
 
 void fToT() {
-  f = rollFloatVar(f, df, -3.0, 10.0);
+  f = rollFloatVar(f, 1.0 / df, -3.0, 10.0);
   t = pow(2, f);
-  cf = f + ((sn - 1) * df);
+  cf = f + ((sn - 1) * (1.0 / df));
   ct = pow(2, cf);
 }
 
@@ -592,7 +582,6 @@ void encoderTurn() {
       menuItem(SCR_TIME,      true,  I_CENTER_RIGHT, 4, M_TIME);
       menuItem(SCR_STRIPE,    false, I_CENTER,       2, M_STRIPE);
       menuItem(SCR_SETUP,     false, I_CENTER,       7, M_SETUP);
-      //menuItem(SCR_DEV_TIMER, false, I_CENTER,       2, M_DEV_TIMER);
     }
     // fStop screen
     if (screen == SCR_FSTOP) {
@@ -600,17 +589,17 @@ void encoderTurn() {
       sHead(M_FSTOP);
       menuItem(SCR_DODGE,   false, I_CENTER_LEFT,  2, lts(F_DODGED, dodges));
       menuItem(SCR_BURN,    false, I_CENTER_RIGHT, 2, lts(F_BURND,  burns));
-      menuItem(OPT_FSTOP_F, true,  I_CENTER,       4, fts(F_FS,  2, 1, f));
-      prnItem(false,        false, I_CENTER_LEFT,  7, fts(F_DFS, 3, 2, df));
-      prnItem(false,        false, I_CENTER_RIGHT, 7, fts(F_TS,  3, 1, t));
+      menuItem(OPT_FSTOP_F, true,  I_CENTER,       4, fts(F_FS, 2, 2, f));
+      prnItem(false,        false, I_CENTER_LEFT,  7, lts(F_DFS, df));
+      prnItem(false,        false, I_CENTER_RIGHT, 7, fts(F_TS, 3, 1, t));
     }
     if (screen == OPT_FSTOP_F) {
       fToT();
       sHead(M_FSTOP);
       calcDodges();
       calcBurns();
-      prnItem(false, true,  I_CENTER, 4, fts(F_FS, 2, 1, f));
-      prnItem(false, false, I_CENTER_LEFT,  7, fts(F_DFS, 3, 2, df));
+      prnItem(false, true,  I_CENTER, 4, fts(F_FS, 2, 2, f));
+      prnItem(false, false, I_CENTER_LEFT,  7, lts(F_DFS, df));
       prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_TS,  3, 1, t));
     }
     if (screen == SCR_DODGE) {
@@ -619,13 +608,13 @@ void encoderTurn() {
       menuItem(100, false,  I_CENTER, 3, fts(F_DODGES, 3, 2, dodge[0].f));
       menuItem(101, false,  I_CENTER, 4, fts(F_DODGES, 3, 2, dodge[1].f));
       menuItem(102, false,  I_CENTER, 5, fts(F_DODGES, 3, 2, dodge[2].f));
-      prnItem(false, false, I_CENTER, 7, fts(F_DFS, 3, 2, df));
+      prnItem(false, false, I_CENTER, 7, lts(F_DFS, df));
     }
     if (screen >= 100 && screen <= 102) {
       uint8_t pos = screen - 100; 
-      dodge[pos].f = rollFloatVar(dodge[pos].f, df, 0.0, 10.0);
+      dodge[pos].f = rollFloatVar(dodge[pos].f, 1.0 / df, 0.0, 10.0);
       prnItem(false, false, I_CENTER, pos + 3, fts(F_DODGES, 3, 2, dodge[pos].f));
-      prnItem(false, false, I_CENTER, 7, fts(F_DFS, 3, 2, df));
+      prnItem(false, false, I_CENTER, 7, lts(F_DFS, df));
     }
     if (screen == SCR_BURN) {
       mpRoll(CNT_BURN);
@@ -633,19 +622,19 @@ void encoderTurn() {
       menuItem(110,  false, I_CENTER, 3, fts(F_BURNS, 3, 2, burn[0].f));
       menuItem(111,  false, I_CENTER, 4, fts(F_BURNS, 3, 2, burn[1].f));
       menuItem(112,  false, I_CENTER, 5, fts(F_BURNS, 3, 2, burn[2].f));
-      prnItem(false, false, I_CENTER, 7, fts(F_DFS, 3, 2, df));
+      prnItem(false, false, I_CENTER, 7, lts(F_DFS, df));
     }
     if (screen >= 110 && screen <= 112) {
       uint8_t pos = screen - 110; 
-      burn[pos].f = rollFloatVar(burn[pos].f, df, 0.0, 10.0);
+      burn[pos].f = rollFloatVar(burn[pos].f, 1.0 / df, 0.0, 10.0);
       prnItem(false, false, I_CENTER, pos + 3, fts(F_BURNS, 3, 2, burn[pos].f));
-      prnItem(false, false, I_CENTER, 7, fts(F_DFS, 3, 2, df));
+      prnItem(false, false, I_CENTER, 7, lts(F_DFS, df));
     }
     // Time screen
     if (screen == SCR_TIME) {
       t = rollFloatVar(t, dt, 0.1, 1024.0);
       sHead(M_TIME);
-      prnItem(false, true,  I_CENTER,       4, fts(F_SS, 3, 1, t));
+      prnItem(false, true,  I_DOT,       4, fts(F_SS, 3, 1, t));
       prnItem(false, false, I_CENTER_LEFT,  7, fts(F_DTS, 3, 1, (float) dt));      
       lf = log10(t) / log10(2);
       prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_FS, 3, 1, lf >= -3 ? lf : -3));
@@ -655,26 +644,26 @@ void encoderTurn() {
       mpRoll(CNT_STRIPE);
       sHead(M_STRIPE);
       menuItem(OPT_STRIPE_N, false, I_CENTER,       2, lts(F_ND, sn));
-      menuItem(OPT_STRIPE_F, true,  I_CENTER,       4, fts(F_FS,  2, 1, f));
-      prnItem(false,         false, I_CENTER_LEFT,  7, fts(F_DFS, 3, 2, df));
-      cf = f + ((sn - 1) * df);
-      prnItem(false,         false, I_CENTER_RIGHT, 7, fts(F_FS,  3, 2, cf));
+      menuItem(OPT_STRIPE_F, true,  I_CENTER,       4, fts(F_FS, 2, 2, f));
+      prnItem(false,         false, I_CENTER_LEFT,  7, lts(F_DFS, df));
+      cf = f + ((sn - 1) * (1.0 / df));
+      prnItem(false,         false, I_CENTER_RIGHT, 7, fts(F_FS, 3, 1, cf));
     }
     // Stripe screen - f setting option
     if (screen == OPT_STRIPE_F) {
       fToT();
       sHead(M_STRIPE);
       prnItem(false, false, I_CENTER,       2, lts(F_ND, sn));
-      prnItem(false, true,  I_CENTER,       4, fts(F_FS,  2, 1, f));
-      prnItem(false, false, I_CENTER_LEFT,  7, fts(F_DFS, 3, 2, df));
-      prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_FS,  3, 2, cf));
+      prnItem(false, true,  I_CENTER,       4, fts(F_FS, 2, 2, f));
+      prnItem(false, false, I_CENTER_LEFT,  7, lts(F_DFS, df));
+      prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_FS, 3, 1, cf));
     }
     // Stripe screen - df setting option
     if (screen == OPT_STRIPE_N) {
       sn = rollIntVar(sn, 1, 2, 20);
-      cf = f + ((sn - 1) * df);
+      cf = f + ((sn - 1) * (1.0 / df));
       prnItem(false, false, I_CENTER,       2, lts(F_ND, sn));
-      prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_FS, 3, 2, cf));
+      prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_FS, 3, 1, cf));
     }
     // Setup screen
     if (screen == SCR_SETUP) {
@@ -703,34 +692,6 @@ void encoderTurn() {
       snd = rollIntVar(snd, 1, 0, 4);
       prnItem(false, false, I_LEFT, 7, lts(F_D, snd));
     }
-/*    
-    // Development timer screen
-    if (screen == SCR_DEV_TIMER) {
-      mpRoll(CNT_DT_TIMES);
-      sHead(M_DEV_TIMER);
-      menuItem(OPT_DT_DEV,  false, I_CENTER_LEFT,  2, lts(F_DT_DEV,  devTimer[0]));
-      menuItem(OPT_DT_STOP, false, I_CENTER_RIGHT, 2, lts(F_DT_STOP, devTimer[1]));
-      menuItem(OPT_DT_FIX,  false, I_CENTER_LEFT,  7, lts(F_DT_FIX,  devTimer[2]));
-      menuItem(OPT_DT_WASH, false, I_CENTER_RIGHT, 7, lts(F_DT_WASH, devTimer[3]));
-    }
-    // Click in Dev time
-    if (screen == OPT_DT_DEV) {
-      devTimer[0] = rollIntVar(devTimer[0], 10, 1, 999);
-      prnItem(false,  false, I_CENTER_LEFT,  2, lts(F_DT_DEV,  devTimer[0]));
-    }
-    if (screen == OPT_DT_STOP) {
-      devTimer[1] = rollIntVar(devTimer[1], 10, 1, 999);
-      prnItem(false,  false, I_CENTER_RIGHT, 2, lts(F_DT_STOP, devTimer[1]));
-    }
-    if (screen == OPT_DT_FIX) {
-      devTimer[2] = rollIntVar(devTimer[2], 10, 1, 999);
-      prnItem(false,  false, I_CENTER_LEFT,  7, lts(F_DT_FIX,  devTimer[2]));
-    }
-    if (screen == OPT_DT_WASH) {
-      devTimer[3] = rollIntVar(devTimer[3], 10, 1, 999);
-      prnItem(false,  false, I_CENTER_RIGHT, 7, lts(F_DT_WASH, devTimer[3]));
-    }
-*/
   }
 }
 
@@ -741,15 +702,15 @@ void encoderClick() {
       case ClickEncoder::Pressed:
         break;
       case ClickEncoder::Held:
-        break;
-      case ClickEncoder::Released:
         rBtnPressLng();
         break;
+      case ClickEncoder::Released:
+        break;
       case ClickEncoder::Clicked:
-        lBtnPressShr();
+        rClick();
         break;
       case ClickEncoder::DoubleClicked:
-        rBtnPressShr();
+        lClick();
         break;
     }
   }
@@ -766,7 +727,7 @@ void lBtnPressShr() {
 void lBtnPressLng() {
   beep(500);
   if (activeMode == MOD_MENUS) {  
-    turnLight(!isLightOn);
+    turnLight(!isLightOn, S_FOCUS);
     return;
   }
 }
@@ -842,7 +803,7 @@ void timerCounter() {
   lt = ct - (float) dts / 1000;        // time left
   lf = log10(cft - lt) / log10(2);     // f left
     
-  prnItem(false, true,  I_CENTER, 4, fts(F_SS, 3, 1, lt >= 0 ? lt : 0));
+  prnItem(false, true,  I_DOT, 4, fts(F_SS, 3, 1, lt >= 0 ? lt : 0));
   if (activeMode == MOD_FSTOP || activeMode == MOD_TIME || activeMode == MOD_STRIPES) {
     prnItem(false, false, I_CENTER_RIGHT, 7, fts(F_FS, 3, 1, lf >= -3 ? lf : -3));
   }
@@ -859,7 +820,7 @@ void timerCounter() {
       prnItem(false, false, I_CENTER_LEFT,  2, lts(F_DODGED, nDodge));
       prnItem(false, false, I_CENTER_RIGHT, 2, lts(F_BURND, nBurn));
     }
-    if (activeMode == MOD_STRIPES && lf >= f + ( df * csn )) {
+    if (activeMode == MOD_STRIPES && lf >= f + ((1.0 / df) * csn )) {
       ct = lt;
       csn++;
       prnItem(false, false, I_CENTER, 2, lts(F_ND, sn - csn));
@@ -907,9 +868,9 @@ void loop() {
   if (activeMode == MOD_MENUS) {
     encoderTurn();
     encoderClick();
-  }
-  
-  if (activeMode == MOD_FSTOP || activeMode == MOD_TIME || activeMode == MOD_STRIPES) {
-    timerCounter();
+  } else {
+    if (activeMode != MOD_PAUSE) {
+      timerCounter();
+    }
   }
 }
